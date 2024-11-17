@@ -1,0 +1,39 @@
+[gd_scene load_steps=9 format=3 uid="uid://c2bx4khyq106c"]
+
+[ext_resource type="Shader" path="res://Source/Scripts/Shaders/Terrain_visualizer.gdshader" id="1_qul7i"]
+[ext_resource type="Script" path="res://Source/Scripts/TerrainVisualizer.cs" id="2_kje0h"]
+[ext_resource type="Shader" path="res://Source/Scenes/terrain visualization.gdshader" id="3_tdufc"]
+[ext_resource type="Texture2D" uid="uid://b1gsdcl6fmuv7" path="res://icon.svg" id="4_lsyk2"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_sxg0f"]
+shader = ExtResource("1_qul7i")
+
+[sub_resource type="FastNoiseLite" id="FastNoiseLite_umeyu"]
+noise_type = 2
+fractal_type = 0
+cellular_return_type = 4
+domain_warp_enabled = true
+domain_warp_type = 2
+domain_warp_amplitude = 35.0
+domain_warp_fractal_type = 0
+
+[sub_resource type="NoiseTexture2D" id="NoiseTexture2D_w5ond"]
+noise = SubResource("FastNoiseLite_umeyu")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_kc7iu"]
+shader = ExtResource("3_tdufc")
+shader_parameter/pixels = null
+
+[node name="terrain visualization" type="Node2D"]
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+visible = false
+material = SubResource("ShaderMaterial_sxg0f")
+texture = SubResource("NoiseTexture2D_w5ond")
+
+[node name="Terrain_Visualizer" type="Node2D" parent="."]
+script = ExtResource("2_kje0h")
+
+[node name="Sprite2D" type="Sprite2D" parent="Terrain_Visualizer"]
+material = SubResource("ShaderMaterial_kc7iu")
+texture = ExtResource("4_lsyk2")
