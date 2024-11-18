@@ -1,9 +1,10 @@
-[gd_scene load_steps=9 format=3 uid="uid://c2bx4khyq106c"]
+[gd_scene load_steps=11 format=3 uid="uid://c2bx4khyq106c"]
 
 [ext_resource type="Shader" path="res://Source/Scripts/Shaders/Terrain_visualizer.gdshader" id="1_qul7i"]
-[ext_resource type="Script" path="res://Source/Scripts/TerrainVisualizer.cs" id="2_kje0h"]
 [ext_resource type="Shader" path="res://Source/Scenes/terrain visualization.gdshader" id="3_tdufc"]
 [ext_resource type="Texture2D" uid="uid://b1gsdcl6fmuv7" path="res://icon.svg" id="4_lsyk2"]
+[ext_resource type="Script" path="res://Source/Scripts/WaterMap.cs" id="5_yy8xg"]
+[ext_resource type="Shader" uid="uid://b435qlbfb63ar" path="res://Source/Scripts/Shaders/waterChunkShader.tres" id="6_diklk"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sxg0f"]
 shader = ExtResource("1_qul7i")
@@ -20,6 +21,87 @@ domain_warp_fractal_type = 0
 [sub_resource type="NoiseTexture2D" id="NoiseTexture2D_w5ond"]
 noise = SubResource("FastNoiseLite_umeyu")
 
+[sub_resource type="CSharpScript" id="CSharpScript_bow1t"]
+script/source = "using Godot;
+using System;
+
+
+public partial class TerrainVisualizer : Node2D
+{
+	[Export] int seed = 0;
+	[Export] int voronoiTileSize = 10;
+	[Export] int width = 128;
+	[Export] int height = 128;
+	[Export] Sprite2D sprite;
+	RNG rng;
+    int[] imageData;
+	
+
+	// Called when the node enters the scene tree for the first time.
+	public override void _Ready()
+	{
+		Image image = Image.CreateEmpty(width, height, false, Image.Format.Rgba8);
+		sprite.Texture = ImageTexture.CreateFromImage(image);
+		
+		imageData = new int[width * height];
+		Init();
+	}
+
+
+	private void Init()
+	{
+		rng = new((uint)(seed));
+		for (int x = 0; x < width; x++)
+		{
+			for (int y = 0; y < height; y++)
+			{
+				Vector2I currentPos = new(x, y);
+				Vector2I currentVoronoiChunk = GetVoronoiChunk(currentPos);
+				float closestVoronoiValue = float.MaxValue;
+				for(int a = -1; a < 2; a++)
+				{
+					for(int b = -1; b < 2; b++)
+					{
+						Vector2I voronoiChunk = currentVoronoiChunk + new Vector2I(a * voronoiTileSize, b * voronoiTileSize);
+						Vector2I voronoiPos = voronoiChunk + GetVoronoiPos(voronoiChunk);
+						float distance = currentPos.DistanceTo(voronoiPos);
+						if(distance < closestVoronoiValue)
+						{
+							closestVoronoiValue = distance;
+						}
+					}
+				}
+				float ratio = closestVoronoiValue / voronoiTileSize;
+				//imageData[x * width + y] = ;
+
+
+				Vector2I currentVoronoiPos = GetVoronoiPos(currentVoronoiChunk);
+
+
+			}
+		}
+
+	}
+
+	private Vector2I GetVoronoiChunk(Vector2I pos)
+	{
+		int x = Mathf.FloorToInt(pos.X / voronoiTileSize);
+		int y = Mathf.FloorToInt(pos.Y / voronoiTileSize);
+		return new Vector2I(x, y);
+	}
+
+	private Vector2I GetVoronoiPos(Vector2I voronoiChunk)
+	{
+		return rng.GetRand2DRange(voronoiChunk, voronoiTileSize, voronoiTileSize);
+	}
+
+	// Called every frame. 'delta' is the elapsed time since the previous frame.
+	public override void _Process(double delta)
+	{
+	}
+}
+"
+
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_kc7iu"]
 shader = ExtResource("3_tdufc")
 shader_parameter/pixels = null
@@ -32,8 +114,13 @@ material = SubResource("ShaderMaterial_sxg0f")
 texture = SubResource("NoiseTexture2D_w5ond")
 
 [node name="Terrain_Visualizer" type="Node2D" parent="."]
-script = ExtResource("2_kje0h")
+visible = false
+script = SubResource("CSharpScript_bow1t")
 
 [node name="Sprite2D" type="Sprite2D" parent="Terrain_Visualizer"]
 material = SubResource("ShaderMaterial_kc7iu")
 texture = ExtResource("4_lsyk2")
+
+[node name="WaterMap" type="Node2D" parent="."]
+script = ExtResource("5_yy8xg")
+shader = ExtResource("6_diklk")

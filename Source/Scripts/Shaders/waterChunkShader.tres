@@ -1,0 +1,18 @@
+[gd_resource type="Shader" format=3 uid="uid://b435qlbfb63ar"]
+
+[resource]
+code = "shader_type canvas_item;
+
+uniform int[4096] chunkHeightData;
+uniform int chunkSize;
+
+void fragment() {
+	int x = int(UV.x * float(chunkSize));
+	int y = int(UV.y * float(chunkSize));
+	if(chunkHeightData[x + y * chunkSize] == 0){
+		COLOR = vec4(0.0,0.0,1.0,1.0);
+	}
+	else {
+		COLOR = vec4(0.0, 0.0, 0.0, 0.5);
+	}
+}"
