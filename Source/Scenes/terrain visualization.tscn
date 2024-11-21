@@ -123,4 +123,6 @@ texture = ExtResource("4_lsyk2")
 
 [node name="WaterMap" type="Node2D" parent="."]
 script = ExtResource("5_yy8xg")
+Width = 4
+Height = 4
 shader = ExtResource("6_diklk")

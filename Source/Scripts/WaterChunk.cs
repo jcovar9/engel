@@ -4,11 +4,13 @@ public class WaterChunk
 {
     public Vector2I origin;
     public int size;
-    public Vector2 voronoiPoint;
+    public Vector2I voronoiPoint;
+    public int[] heightData;
 
-    public WaterChunk(Vector2I _origin, int _size, Vector2 _voronoiPoint){
+    public WaterChunk(Vector2I _origin, int _size, Vector2I _voronoiPoint){
         origin = _origin;
         size = _size;
         voronoiPoint = _voronoiPoint;
+        heightData = new int[_size * _size];
     }
 }

@@ -38,10 +38,10 @@ public partial class RNG
         return Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Get2DNoise(pos.X, pos.Y));
     }
 
-    public float Vec2ToRandRatio(Vector2 pos)
-    {
-        return Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Get2DNoise((int)pos.X, (int)pos.Y));
-    }
+    // public float Vec2ToRandRatio(Vector2 pos)
+    // {
+    //     return Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Get2DNoise((int)pos.X, (int)pos.Y));
+    // }
 
     public int GetRandRange(Vector2I pos, int from, int to)
     {
@@ -57,15 +57,15 @@ public partial class RNG
         return new Vector2I(randX, randY);
     }
 
-    public Vector2 GetRandVec2(Vector2 pos, float width, float height)
-    {
-        Next = Get1DNoise(Next + (uint)(pos.X + pos.Y * LargePrimeNum));
-        float randX = Mathf.Lerp(0.0f, width, Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Next));
-        Next = Get1DNoise(Next);
-        float randY = Mathf.Lerp(0.0f, height, Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Next));
-        ResetNext();
-        return new Vector2(randX, randY);
-    }
+    // public Vector2 GetRandVec2(Vector2 pos, float width, float height)
+    // {
+    //     Next = Get1DNoise(Next + (uint)(pos.X * pos.Y * LargePrimeNum));
+    //     float randX = Mathf.Lerp(0.0f, width, Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Next));
+    //     Next = Get1DNoise(Next);
+    //     float randY = Mathf.Lerp(0.0f, height, Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Next));
+    //     ResetNext();
+    //     return new Vector2(randX, randY);
+    // }
 
     // NEXT Functions
     public void ResetNext() { Next = Seed; }
