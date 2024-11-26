@@ -5,12 +5,8 @@ using System.Collections.Generic;
 [Tool]
 public partial class WaterMap : Node2D
 {
-    // private float _waterCutoff = 2;
-    // [Export(PropertyHint.Range, "0.5,5.0,0.25")] public float WaterCutoff { get => _waterCutoff; set { _waterCutoff = value; FieldSet(); } }
-    private int _width = 2;
-    [Export(PropertyHint.Range, "2,16,2")] public int Width { get => _width; set { _width = value; FieldSet(); } }
-    private int _height = 2;
-    [Export(PropertyHint.Range, "2,16,2")] public int Height { get => _height; set { _height = value; FieldSet(); } }
+    private int _halfMapSize = 1;
+    [Export(PropertyHint.Range, "1,16,1")] public int HalfMapSize { get => _halfMapSize; set { _halfMapSize = value; FieldSet(); } }
     private uint _seed = 0;
     [Export] public uint Seed { get => _seed; set { _seed = value; FieldSet(); } }
     private int _chunkSize = 64;
@@ -19,6 +15,7 @@ public partial class WaterMap : Node2D
     private RNG rng;
     private Dictionary<Vector2I, WaterChunk> waterChunks;
     private Dictionary<Vector2I, Sprite2D> chunkSprites = new();
+    private Dictionary<Tuple<Vector2,Vector2>, Dictionary<Vector2I,HashSet<Vector2I>>> rivers;
     
     private void FieldSet()
     {
@@ -35,165 +32,194 @@ public partial class WaterMap : Node2D
     private void Init()
     {
         waterChunks = new();
+        rivers = new();
         foreach (Sprite2D sprite in chunkSprites.Values)
         {
             sprite.QueueFree();
         }
         chunkSprites.Clear();
         rng = new(_seed);
-        for(int x = -_width / 2; x < _width / 2; x++)
+        for(int x = -_halfMapSize; x <= _halfMapSize; x++)
         {
-            for(int y = -_height / 2; y < _height / 2; y++)
+            for(int y = -_halfMapSize; y <= _halfMapSize; y++)
             {
                 Vector2I chunkOrigin = new(x * _chunkSize, y * _chunkSize);
-                Vector2I voronoiPoint = GetVoronoiPoint(chunkOrigin);
-                WaterChunk chunk = new(chunkOrigin, _chunkSize, voronoiPoint);
+                WaterChunk chunk = new(chunkOrigin, _chunkSize, rng);
                 waterChunks.Add(chunkOrigin, chunk);
+            }
+        }
+        for(int x = -(_halfMapSize - 1); x <= _halfMapSize - 1; x++)
+        {
+            for(int y = -(_halfMapSize - 1); y <= _halfMapSize - 1; y++)
+            {
+                Vector2I currChunkOrigin = new(x * _chunkSize, y * _chunkSize);
+                List<Tuple<Vector2, float>> lakeSeeds = waterChunks[currChunkOrigin].lakeSeeds;
+                for(int i = 0; i < lakeSeeds.Count - 1; i++)
+                {
+                    AddRiver(lakeSeeds[i].Item1, lakeSeeds[i+1].Item1);
+                }
+                AddRiver(lakeSeeds[lakeSeeds.Count-1].Item1, lakeSeeds[0].Item1);
             }
         }
         foreach (WaterChunk chunk in waterChunks.Values)
         {
-            Vector2I[] voronoiPoints = Get3x3VoronoiPoints(chunk.origin);
-            for(int x = 0; x < _chunkSize; x++)
+            Sprite2D chunkSprite = chunk.GetChunkSprite(shader);
+            AddChild(chunkSprite);
+            chunkSprites.Add(chunk.origin, chunkSprite);
+        }
+    }
+
+    private void AddRiver(Vector2 lakeSeed1, Vector2 lakeSeed2)
+    {
+        Tuple<Vector2, Vector2> riverID;
+        if(lakeSeed1.Length() < lakeSeed2.Length())
+        {
+            riverID = new(lakeSeed1, lakeSeed2);
+        }
+        else
+        {
+            riverID = new(lakeSeed2, lakeSeed1);
+        }
+        if(!rivers.ContainsKey(riverID))
+        {
+            rivers[riverID] = GetRiver(riverID.Item1, riverID.Item2);
+            foreach (KeyValuePair<Vector2I, HashSet<Vector2I>> chunkRiverTiles in rivers[riverID])
             {
-                for(int y = 0; y < _chunkSize;y++)
+                if(waterChunks.ContainsKey(chunkRiverTiles.Key))
                 {
-                    float minDistanceVoronoi = float.MaxValue;
-                    float minDistanceVoronoi2 = float.MaxValue;
-                    float minDistanceVoronoi3 = float.MaxValue;
-                    
-                    Vector2I currPoint = new Vector2I(x,y) + chunk.origin;
-                    foreach (Vector2I voronoiPoint in voronoiPoints)
+                    foreach (Vector2I riverTile in chunkRiverTiles.Value)
                     {
-                        float distance = currPoint.DistanceTo(voronoiPoint);
-                        if(distance < minDistanceVoronoi)
-                        {
-                            minDistanceVoronoi3 = minDistanceVoronoi2;
-                            minDistanceVoronoi2 = minDistanceVoronoi;
-                            minDistanceVoronoi = distance;
-                        }
+                        Vector2I localRiverTile = riverTile - chunkRiverTiles.Key;
+                        waterChunks[chunkRiverTiles.Key].heightData[localRiverTile.X + localRiverTile.Y * _chunkSize] = 2;
                     }
-                    if(minDistanceVoronoi3 - minDistanceVoronoi < 2.8f)
-                    {
-                        chunk.heightData[x + y * _chunkSize] = 0;
-                    }
-                    else if(minDistanceVoronoi2 - minDistanceVoronoi < 2.8f)
-                    {
-                        chunk.heightData[x + y * _chunkSize] = 1;
-                    }
-                    else if(minDistanceVoronoi < 1.0f)
-                    {
-                        chunk.heightData[x + y * _chunkSize] = 2;
-                    }
-                    else
-                    {
-                        chunk.heightData[x + y * _chunkSize] = 3;
-                    }
-                    
                 }
             }
         }
+    }
 
-        WaterChunk zeroChunk = waterChunks[new(0,0)];
-        Vector2I[] voronoiPoint3x3 = Get3x3VoronoiPoints(zeroChunk.origin);
-        SetLakeSeed(voronoiPoint3x3[4], voronoiPoint3x3[0], voronoiPoint3x3[1]);
-        SetLakeSeed(voronoiPoint3x3[4], voronoiPoint3x3[0], voronoiPoint3x3[3]);
-        SetLakeSeed(voronoiPoint3x3[4], voronoiPoint3x3[1], voronoiPoint3x3[3]);
-
-        SetLakeSeed(voronoiPoint3x3[4], voronoiPoint3x3[1], voronoiPoint3x3[2]);
-        SetLakeSeed(voronoiPoint3x3[4], voronoiPoint3x3[2], voronoiPoint3x3[5]);
-        SetLakeSeed(voronoiPoint3x3[4], voronoiPoint3x3[1], voronoiPoint3x3[5]);
-        foreach (WaterChunk waterChunk in waterChunks.Values)
+    public Dictionary<Vector2I, HashSet<Vector2I>> GetRiver(Vector2 start, Vector2 end)
+    {
+        Vector2 dir = (end - start).Normalized();
+        Vector2 unitStepSize = new(Mathf.Sqrt(1.0f + (dir.Y / dir.X) * (dir.Y / dir.X)), Mathf.Sqrt(1.0f + (dir.X / dir.Y) * (dir.X / dir.Y)));
+        Vector2I riverTile = new(Mathf.FloorToInt(start.X), Mathf.FloorToInt(start.Y));
+        Dictionary<Vector2I, HashSet<Vector2I>> chunkRiverTiles = new();
+        Vector2 lengthIn1D;
+        Vector2I step;
+        if(dir.X < 0)
         {
-            CreateChunkSprite(waterChunk.origin, waterChunk.heightData);
+            step.X = -1;
+            lengthIn1D.X = (start.X - riverTile.X) * unitStepSize.X;
         }
-    }
-
-    private List<Vector2I> GetValidLakeSeeds(Vector2I chunkOrigin)
-    {
-        Vector2I centerVoronoiPoint = GetVoronoiPoint(chunkOrigin);
-        List<Vector2I> voronoiNeighbors = GetVoronoiNeighbors(chunkOrigin);
-        List<Vector2I> validLakeSeeds = new();
-        foreach (Vector2I voronoiPoint in voronoiNeighbors)
+        else
         {
-            
+            step.X = 1;
+            lengthIn1D.X = (riverTile.X + 1 - start.X) * unitStepSize.X;
         }
-
-    }
-
-    private static Vector2 GetCircumcenter(Vector2I voronoiA, Vector2I voronoiB, Vector2I voronoiC)
-    {
-        float voronoiASq = voronoiA.X * voronoiA.X + voronoiA.Y * voronoiA.Y;
-        float voronoiBSq = voronoiB.X * voronoiB.X + voronoiB.Y * voronoiB.Y;
-        float voronoiCSq = voronoiC.X * voronoiC.X + voronoiC.Y * voronoiC.Y;
-        float BYminusCY = voronoiB.Y - voronoiC.Y;
-        float CYminusAY = voronoiC.Y - voronoiA.Y;
-        float AYminusBY = voronoiA.Y - voronoiB.Y;
-        float denominator = 2.0f * (voronoiA.X * BYminusCY + voronoiB.X * CYminusAY + voronoiC.X * AYminusBY);
-        float x = (voronoiASq * BYminusCY + voronoiBSq * CYminusAY + voronoiCSq * AYminusBY) / denominator;
-        float y = (voronoiASq * (voronoiC.X - voronoiB.X) + voronoiBSq * (voronoiA.X - voronoiC.X) + voronoiCSq * (voronoiB.X - voronoiA.X)) / denominator;
-        return new(x,y);
-    }
-
-    private void CreateChunkSprite(Vector2I origin, int[] chunkHeightData)
-    {
-        Image image = Image.CreateEmpty(_chunkSize, _chunkSize, false, Image.Format.Rgba8);
-        ImageTexture imageTex = ImageTexture.CreateFromImage(image);
-        ShaderMaterial shaderMaterial = new()
+        if(dir.Y < 0)
         {
-            Shader = shader
-        };
-        shaderMaterial.SetShaderParameter("chunkHeightData", chunkHeightData);
-        shaderMaterial.SetShaderParameter("chunkSize", _chunkSize);
-        Sprite2D sprite2D = new()
-        {
-            Position = origin + new Vector2I(_chunkSize / 2, _chunkSize / 2),
-            Texture = imageTex,
-            Material = shaderMaterial
-        };
-        AddChild(sprite2D);
-        chunkSprites.Add(origin, sprite2D);
-    }
-
-    private List<Vector2I> GetVoronoiNeighbors(Vector2I chunkOrigin)
-    {
-        List<Vector2I> origins = GetChunkNeighbors(chunkOrigin);
-        for(int x = 0; x < 8; x++)
-        {
-            origins[x] = GetVoronoiPoint(origins[x]);
+            step.Y = -1;
+            lengthIn1D.Y = (start.Y - riverTile.Y) * unitStepSize.Y;
         }
-        return origins;
+        else
+        {
+            step.Y = 1;
+            lengthIn1D.Y = (riverTile.Y + 1 - start.Y) * unitStepSize.Y;
+        }
+        Vector2I endTile = new(Mathf.FloorToInt(end.X), Mathf.FloorToInt(end.Y));
+        float length = (end - start).Length();
+        while(riverTile != endTile && (riverTile - start).Length() < length)
+        {
+            if(lengthIn1D.X < lengthIn1D.Y)
+            {
+                riverTile.X += step.X;
+                lengthIn1D.X += unitStepSize.X;
+            }
+            else
+            {
+                riverTile.Y += step.Y;
+                lengthIn1D.Y += unitStepSize.Y;
+            }
+            Vector2I currOrigin = GetChunkOrigin(riverTile);
+            if(riverTile != endTile)
+            {
+                if(!chunkRiverTiles.ContainsKey(currOrigin))
+                {
+                    chunkRiverTiles.Add(currOrigin, new());
+                }
+                chunkRiverTiles[currOrigin].Add(riverTile);
+            }
+        }
+        return chunkRiverTiles;
     }
 
-    private List<Vector2I> GetChunkNeighbors(Vector2I chunkOrigin)
-    {
-        return new(){
-            new Vector2I(-1, -1) * _chunkSize + chunkOrigin,
-            new Vector2I( 0, -1) * _chunkSize + chunkOrigin,
-            new Vector2I( 1, -1) * _chunkSize + chunkOrigin,
-            new Vector2I(-1,  0) * _chunkSize + chunkOrigin,
-            new Vector2I( 1,  0) * _chunkSize + chunkOrigin,
-            new Vector2I(-1,  1) * _chunkSize + chunkOrigin,
-            new Vector2I( 0,  1) * _chunkSize + chunkOrigin,
-            new Vector2I( 1,  1) * _chunkSize + chunkOrigin,
-        };
-    }
+        // foreach (WaterChunk chunk in waterChunks.Values)
+        // {
+        //     List<Vector2I> voronoiPoints = GetVoronoiNeighbors(chunk.origin);
+        //     voronoiPoints.Add(GetVoronoiPoint(chunk.origin));
+        //     for(int x = 0; x < _chunkSize; x++)
+        //     {
+        //         for(int y = 0; y < _chunkSize;y++)
+        //         {
+        //             float minDistanceVoronoi = float.MaxValue;
+        //             float minDistanceVoronoi2 = float.MaxValue;
+        //             float minDistanceVoronoi3 = float.MaxValue;
+                    
+        //             Vector2I currPoint = new Vector2I(x,y) + chunk.origin;
+        //             foreach (Vector2I voronoiPoint in voronoiPoints)
+        //             {
+        //                 float distance = currPoint.DistanceTo(voronoiPoint);
+        //                 if(distance < minDistanceVoronoi)
+        //                 {
+        //                     minDistanceVoronoi3 = minDistanceVoronoi2;
+        //                     minDistanceVoronoi2 = minDistanceVoronoi;
+        //                     minDistanceVoronoi = distance;
+        //                 }
+        //                 else if(distance < minDistanceVoronoi2)
+        //                 {
+        //                     minDistanceVoronoi3 = minDistanceVoronoi2;
+        //                     minDistanceVoronoi2 = distance;
+        //                 }
+        //                 else if(distance < minDistanceVoronoi3)
+        //                 {
+        //                     minDistanceVoronoi3 = distance;
+        //                 }
+        //             }
+        //             if(minDistanceVoronoi3 - minDistanceVoronoi < 1.0f)
+        //             {
+        //                 chunk.heightData[x + y * _chunkSize] = 0;
+        //             }
+        //             else if(minDistanceVoronoi2 - minDistanceVoronoi < 1.0f)
+        //             {
+        //                 chunk.heightData[x + y * _chunkSize] = 1;
+        //             }
+        //             else if(minDistanceVoronoi < 1.0f)
+        //             {
+        //                 chunk.heightData[x + y * _chunkSize] = 2;
+        //             }
+        //             else
+        //             {
+        //                 chunk.heightData[x + y * _chunkSize] = 3;
+        //             }
+                    
+        //         }
+        //     }
+        // }
+
+        // WaterChunk zeroChunk = waterChunks[new(0,0)];
+        // foreach (Vector2I lakeSeed in GetValidLakeSeeds(zeroChunk.origin))
+        // {
+        //     Vector2I lakeSeedOrigin = GetChunkOrigin(lakeSeed);
+        //     Vector2I localLakeSeed = lakeSeed - lakeSeedOrigin;
+        //     if(waterChunks.ContainsKey(lakeSeedOrigin))
+        //     {
+        //         waterChunks[lakeSeedOrigin].heightData[localLakeSeed.X + localLakeSeed.Y * _chunkSize] = 4;
+        //     }
+        // }
 
     private Vector2I GetChunkOrigin(Vector2 pos)
     {
         return new(Mathf.FloorToInt(pos.X / _chunkSize) * _chunkSize, Mathf.FloorToInt(pos.Y / _chunkSize) * _chunkSize);
     }
 
-    private Vector2I GetVoronoiPoint(Vector2I chunkOrigin)
-    {
-        if(waterChunks.ContainsKey(chunkOrigin))
-        {
-            return waterChunks[chunkOrigin].voronoiPoint;
-        }
-        else
-        {
-            return rng.GetRandVec2I(chunkOrigin, _chunkSize / 2, _chunkSize / 2) + new Vector2I(_chunkSize, _chunkSize) / 4 + chunkOrigin;
-        }
-    }
 
 }
