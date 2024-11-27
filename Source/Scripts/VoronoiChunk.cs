@@ -3,23 +3,22 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 
-public class WaterChunk
+public class VoronoiChunk
 {
-    public Vector2I origin;
-    public int size;
+    public Vector2I gridOrigin;
+    public int gridSize;
     private RNG rng;
-    public Vector2I voronoiPoint;
+    public Vector2I voronoiOrigin;
     public int[] heightData;
-    public List<Tuple<Vector2, float>> lakeSeeds;
+    public List<Tuple<Vector2, float>> chunkVertexes;
 
-    public WaterChunk(Vector2I _origin, int _size, RNG _rng){
-        origin = _origin;
-        size = _size;
+    public VoronoiChunk(Vector2I _gridOrigin, int _gridSize, RNG _rng){
+        gridOrigin = _gridOrigin;
+        gridSize = _gridSize;
         rng = _rng;
-        voronoiPoint = GetVoronoiPoint(origin);
-        heightData = new int[_size * _size];
-        lakeSeeds = GetValidLakeSeeds().OrderBy(x => x.Item2).ToList();
-        foreach (Tuple<Vector2, float> lakeSeed in lakeSeeds)
+        voronoiOrigin = GetVoronoiPoint(gridOrigin);
+        chunkVertexes = GetChunkVertexes();
+        foreach (Tuple<Vector2, float> chunkVertex in chunkVertexes)
         {
             Vector2I lakeSeedOrigin = GetChunkOrigin(lakeSeed.Item1);
             if(origin == lakeSeedOrigin)
@@ -30,25 +29,25 @@ public class WaterChunk
         }
     }
 
-    private List<Tuple<Vector2, float>> GetValidLakeSeeds()
+    private List<Tuple<Vector2, float>> GetChunkVertexes()
     {
-        List<Vector2I> voronoiNeighbors = GetVoronoiNeighbors(origin);
-        List<Tuple<Vector2, float>> validLakeSeeds = new();
+        List<Vector2I> voronoiNeighbors = GetVoronoiNeighbors(gridOrigin);
+        List<Tuple<Vector2, float>> vertexes = new();
         for(int i = 0; i < voronoiNeighbors.Count; i++)
         {
             for (int j = i + 1; j < voronoiNeighbors.Count; j++)
             {
-                Vector2 circumcenter = GetCircumcenter(voronoiPoint, voronoiNeighbors[i], voronoiNeighbors[j]);
-                Vector2I circumcenterChunk = GetChunkOrigin(circumcenter);
-                if(origin.X - size <= circumcenterChunk.X && circumcenterChunk.X <= origin.X + size &&
-                origin.Y - size <= circumcenterChunk.Y && circumcenterChunk.Y <= origin.Y + size)
+                Vector2 circumcenter = GetCircumcenter(voronoiOrigin, voronoiNeighbors[i], voronoiNeighbors[j]);
+                Vector2I circumcenterChunk = GetGridChunkOrigin(circumcenter);
+                if(gridOrigin.X - gridSize <= circumcenterChunk.X && circumcenterChunk.X <= gridOrigin.X + gridSize &&
+                gridOrigin.Y - gridSize <= circumcenterChunk.Y && circumcenterChunk.Y <= gridOrigin.Y + gridSize)
                 {
-                    float minDist1 = circumcenter.DistanceTo(voronoiPoint);
+                    float minDist1 = circumcenter.DistanceTo(voronoiOrigin);
                     float minDist2 = float.MaxValue;
                     float minDist3 = float.MaxValue;
-                    foreach (Vector2I neighborVoronoiPoint in voronoiNeighbors)
+                    foreach (Vector2I neighborVoronoiOrigin in voronoiNeighbors)
                     {
-                        float currDist = circumcenter.DistanceTo(neighborVoronoiPoint);
+                        float currDist = circumcenter.DistanceTo(neighborVoronoiOrigin);
                         if(currDist < minDist1)
                         {
                             minDist3 = minDist2;
@@ -67,12 +66,12 @@ public class WaterChunk
                     }
                     if(minDist3 - minDist1 < 0.5f)
                     {
-                        validLakeSeeds.Add(new(circumcenter, ((Vector2)voronoiPoint).AngleToPoint(circumcenter)));
+                        vertexes.Add(new(circumcenter, ((Vector2)voronoiOrigin).AngleToPoint(circumcenter)));
                     }
                 }
             }
         }
-        return validLakeSeeds;
+        return vertexes.OrderBy(x => x.Item2).ToList();
     }
 
     public Sprite2D GetChunkSprite(Shader shader)
@@ -140,8 +139,8 @@ public class WaterChunk
         return rng.GetRandVec2I(chunkOrigin, size / 2, size / 2) + chunkOrigin + new Vector2I(size, size) / 4;
     }
 
-    private Vector2I GetChunkOrigin(Vector2 pos)
+    private Vector2I GetGridChunkOrigin(Vector2 pos)
     {
-        return new(Mathf.FloorToInt(pos.X / size) * size, Mathf.FloorToInt(pos.Y / size) * size);
+        return new(Mathf.FloorToInt(pos.X / gridSize) * gridSize, Mathf.FloorToInt(pos.Y / gridSize) * gridSize);
     }
 }

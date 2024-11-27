@@ -9,8 +9,8 @@ public partial class WaterMap : Node2D
     [Export(PropertyHint.Range, "1,16,1")] public int HalfMapSize { get => _halfMapSize; set { _halfMapSize = value; FieldSet(); } }
     private uint _seed = 0;
     [Export] public uint Seed { get => _seed; set { _seed = value; FieldSet(); } }
-    private int _chunkSize = 64;
-    [Export] public int ChunkSize { get => _chunkSize; set { _chunkSize = value; FieldSet(); } }
+    private int _gridSize = 64;
+    [Export] public int GridSize { get => _gridSize; set { _gridSize = value; FieldSet(); } }
     [Export] public Shader shader;
     private RNG rng;
     private Dictionary<Vector2I, WaterChunk> waterChunks;

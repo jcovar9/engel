@@ -17,7 +17,7 @@ void fragment() {
 		COLOR = vec4(0.0,0.0,1.0,0.5);
 	}
 	else if(chunkHeightData[x + y * chunkSize] == 2){
-		COLOR = vec4(0.0,0.0,0.0,1.0);
+		COLOR = vec4(0.0,0.0,1.0,1.0);
 	}
 	else if(chunkHeightData[x + y * chunkSize] == 4){
 		COLOR = vec4(0.0,1.0,0.0,1.0);
