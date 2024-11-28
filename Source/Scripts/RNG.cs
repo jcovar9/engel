@@ -3,7 +3,7 @@ using System;
 
 public partial class RNG
 {
-    private uint Seed;
+    private readonly uint Seed;
     private uint Next;
     private const uint BitNoise1 = 0x68E31DA4;
     private const uint BitNoise2 = 0xB5297A4D;
@@ -57,15 +57,15 @@ public partial class RNG
         return new Vector2I(randX, randY);
     }
 
-    // public Vector2 GetRandVec2(Vector2 pos, float width, float height)
-    // {
-    //     Next = Get1DNoise(Next + (uint)(pos.X * pos.Y * LargePrimeNum));
-    //     float randX = Mathf.Lerp(0.0f, width, Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Next));
-    //     Next = Get1DNoise(Next);
-    //     float randY = Mathf.Lerp(0.0f, height, Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Next));
-    //     ResetNext();
-    //     return new Vector2(randX, randY);
-    // }
+    public Vector2 GetRandVec2(Vector2I pos, float width, float height)
+    {
+        Next = Get2DNoise(pos.X, pos.Y);
+        float randX = Mathf.Lerp(0.0f, width, Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Next));
+        Next = Get1DNoise(Next);
+        float randY = Mathf.Lerp(0.0f, height, Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Next));
+        ResetNext();
+        return new Vector2(randX, randY);
+    }
 
     // NEXT Functions
     public void ResetNext() { Next = Seed; }

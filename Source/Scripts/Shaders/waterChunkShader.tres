@@ -3,32 +3,40 @@
 [resource]
 code = "shader_type canvas_item;
 
-uniform int[4096] chunkHeightData;
+uniform int[1000000] chunkHeightData;
+uniform int viewSize;
 uniform int chunkSize;
-uniform ivec2 voronoiPoint;
 
 void fragment() {
-	int x = int(UV.x * float(chunkSize));
-	int y = int(UV.y * float(chunkSize));
-	if(chunkHeightData[x + y * chunkSize] == 0){
-		COLOR.a = 0.5;
+	int x = int(UV.x * float(viewSize));
+	int y = int(UV.y * float(viewSize));
+	int index = x + y * viewSize;
+	if(chunkHeightData[index] == 1){
+		COLOR = vec4(0.0,0.4,0.0,1.0);
+		if(x / 2 * 2 != x && y / 2 * 2 != y)
+		{
+			COLOR.b += 0.5;
+		}
 	}
-	else if(chunkHeightData[x + y * chunkSize] == 1){
-		COLOR = vec4(0.0,0.0,1.0,0.5);
+	else if(chunkHeightData[index] == 2){
+		COLOR = vec4(0.0,0.0,0.0,1.0);
 	}
-	else if(chunkHeightData[x + y * chunkSize] == 2){
-		COLOR = vec4(0.0,0.0,1.0,1.0);
-	}
-	else if(chunkHeightData[x + y * chunkSize] == 4){
-		COLOR = vec4(0.0,1.0,0.0,1.0);
+	else if(chunkHeightData[index] == 3){
+		COLOR = vec4(1.0,0.0,0.0,1.0);
 	}
 	else{
-		COLOR = vec4(0.0,0.0,0.0,0.5);
+		
+		x -= ((viewSize - chunkSize) / 2);
+		y -= ((viewSize - chunkSize) / 2);
+		if(x / chunkSize * chunkSize == x){
+			COLOR.ra += vec2(0.5, 0.25);
+		}
+		else if(y / chunkSize * chunkSize == y){
+			COLOR.ra += vec2(0.5, 0.25);
+		}
+		else{
+			COLOR = vec4(0.0,0.0,0.0,0.1);
+		}
 	}
-	if(x == 0 || y == 0){
-		COLOR.r += 0.5;
-	}
-	if(x == voronoiPoint.x && y == voronoiPoint.y){
-		COLOR = vec4(0.0);
-	}
+	
 }"
