@@ -3,40 +3,51 @@
 [resource]
 code = "shader_type canvas_item;
 
-uniform int[1000000] chunkHeightData;
+uniform float[1000000] tileHeights;
+uniform int[1000000] tileTypes;
 uniform int viewSize;
 uniform int chunkSize;
 
 void fragment() {
 	int x = int(UV.x * float(viewSize));
 	int y = int(UV.y * float(viewSize));
-	int index = x + y * viewSize;
-	if(chunkHeightData[index] == 1){
-		COLOR = vec4(0.0,0.4,0.0,1.0);
-		if(x / 2 * 2 != x && y / 2 * 2 != y)
-		{
-			COLOR.b += 0.5;
-		}
+	int worldX = x - ((viewSize - chunkSize) / 2);
+	int worldY = y - ((viewSize - chunkSize) / 2);
+	float currHeight = float(int(tileHeights[x + y * viewSize] * 10.0)) / 10.0;
+	int currType = tileTypes[x + y * viewSize];
+	if(currType == -1)
+	{
+		COLOR = vec4(1.0,1.0,0.0,1.0);
 	}
-	else if(chunkHeightData[index] == 2){
-		COLOR = vec4(0.0,0.0,0.0,1.0);
-	}
-	else if(chunkHeightData[index] == 3){
+	else if(currType == -2)
+	{
 		COLOR = vec4(1.0,0.0,0.0,1.0);
 	}
+	else if(currType == 1) // local minimum
+	{
+		COLOR = vec4(0.0,0.0,1.0,1.0);
+	}
+	else if(currType == 2) // local maximum
+	{
+		COLOR = vec4(0.0,0.0,1.0,1.0);
+	}
+	else if(currType == 3) // inbetween
+	{
+		COLOR = vec4(0.0,0.0,1.0,0.5);
+	}
+	else if(currType == 4) // edges
+	{
+		COLOR = vec4(0.0, currHeight, 0.0, 1.0);
+	}
 	else{
-		
-		x -= ((viewSize - chunkSize) / 2);
-		y -= ((viewSize - chunkSize) / 2);
-		if(x / chunkSize * chunkSize == x){
-			COLOR.ra += vec2(0.5, 0.25);
+		if(worldX / chunkSize * chunkSize == worldX){
+			COLOR = vec4(0.5, 0.0, 0.0, 0.5);
 		}
-		else if(y / chunkSize * chunkSize == y){
-			COLOR.ra += vec2(0.5, 0.25);
+		else if(worldY / chunkSize * chunkSize == worldY){
+			COLOR = vec4(0.5, 0.0, 0.0, 0.5);
 		}
 		else{
 			COLOR = vec4(0.0,0.0,0.0,0.1);
 		}
 	}
-	
 }"
