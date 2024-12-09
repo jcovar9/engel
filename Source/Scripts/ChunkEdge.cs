@@ -8,48 +8,12 @@ public class ChunkEdge
     public ChunkVertex vertex2;
     public Vector2I[] voronoiOrigins = new Vector2I[2];
     public Dictionary<Vector2I, float> edgeTiles;
-    public ChunkEdge(ChunkVertex _vertex1, ChunkVertex _vertex2)
+    public ChunkEdge(ChunkVertex vertex1, ChunkVertex vertex2)
     {
-        SetVertexes(_vertex1, _vertex2);
+        this.vertex1 = vertex1;
+        this.vertex2 = vertex2;
         SetVoronoiOrigins();
         SetEdgeTiles();
-    }
-
-    public static Tuple<Vector2I, Vector2I> GetEdgeID(ChunkVertex v1, ChunkVertex v2)
-    {
-        if(v1.position.X < v2.position.X)
-        {
-            return new(v1.position, v2.position);
-        }
-        else if(v1.position.X == v2.position.X)
-        {
-            if(v1.position.Y <= v2.position.Y)
-            {
-                return new(v1.position, v2.position);
-            }
-            else
-            {
-                return new(v2.position, v1.position);
-            }
-        }
-        else
-        {
-            return new(v2.position, v1.position);
-        }
-    }
-
-    private void SetVertexes(ChunkVertex v1, ChunkVertex v2)
-    {
-        if(v1.position == GetEdgeID(v1, v2).Item1)
-        {
-            vertex1 = v1;
-            vertex2 = v2;
-        }
-        else
-        {
-            vertex1 = v2;
-            vertex2 = v1;
-        }
     }
 
     private void SetVoronoiOrigins()
@@ -120,6 +84,7 @@ public class ChunkEdge
         Vector2I otherVoronoiOrigin;
         if(voronoiOrigins[0] == voronoiOrigin) otherVoronoiOrigin = voronoiOrigins[1];
         else otherVoronoiOrigin = voronoiOrigins[0];
+        Span<Vector2I> offsets = stackalloc Vector2I[]{ new(0,-1), new(-1,0), new(1,0), new(0,1) };
 
         Dictionary<Vector2I, float> borderTiles = new();
         foreach (KeyValuePair<Vector2I, float> edgeTile in edgeTiles)
@@ -132,29 +97,41 @@ public class ChunkEdge
             }
             else
             {
-                TryAddOffsetTiles(borderTiles, edgeTile, voronoiOrigin, otherVoronoiOrigin);
+                foreach (Vector2I offset in offsets)
+                {
+                    Vector2I offsetEdgeTile = edgeTile.Key + offset;
+                    if(!edgeTiles.ContainsKey(offsetEdgeTile) && !borderTiles.ContainsKey(offsetEdgeTile))
+                    {
+                        float offsetDist = offsetEdgeTile.DistanceTo(voronoiOrigin);
+                        if(offsetDist < dist)
+                        {
+                            borderTiles[offsetEdgeTile] = edgeTile.Value;
+                        }
+                    }
+                }
+                // TryAddOffsetTiles(borderTiles, edgeTile, voronoiOrigin, otherVoronoiOrigin);
             }
         }
         return borderTiles;
     }
 
-    private void TryAddOffsetTiles(Dictionary<Vector2I, float> borderTiles, KeyValuePair<Vector2I, float> edgeTile, Vector2I voronoiOrigin, Vector2I otherVoronoiOrigin)
-    {
-        Span<Vector2I> HVTiles = stackalloc Vector2I[4]{
-            new(edgeTile.Key.X    , edgeTile.Key.Y - 1),
-            new(edgeTile.Key.X - 1, edgeTile.Key.Y    ),
-            new(edgeTile.Key.X + 1, edgeTile.Key.Y    ),
-            new(edgeTile.Key.X    , edgeTile.Key.Y + 1),
-        };
-        foreach (Vector2I offsetTile in HVTiles)
-        {
-            float offsetDist = offsetTile.DistanceTo(voronoiOrigin);
-            float otherOffsetDist = offsetTile.DistanceTo(otherVoronoiOrigin);
-            if(!borderTiles.ContainsKey(offsetTile) && offsetDist < otherOffsetDist)
-            {
-                borderTiles[offsetTile] = edgeTile.Value;
-            }
-        }
-    }
+    // private void TryAddOffsetTiles(Dictionary<Vector2I, float> borderTiles, KeyValuePair<Vector2I, float> edgeTile, Vector2I voronoiOrigin, Vector2I otherVoronoiOrigin)
+    // {
+    //     Span<Vector2I> HVTiles = stackalloc Vector2I[4]{
+    //         new(edgeTile.Key.X    , edgeTile.Key.Y - 1),
+    //         new(edgeTile.Key.X - 1, edgeTile.Key.Y    ),
+    //         new(edgeTile.Key.X + 1, edgeTile.Key.Y    ),
+    //         new(edgeTile.Key.X    , edgeTile.Key.Y + 1),
+    //     };
+    //     foreach (Vector2I offsetTile in HVTiles)
+    //     {
+    //         float offsetDist = offsetTile.DistanceTo(voronoiOrigin);
+    //         float otherOffsetDist = offsetTile.DistanceTo(otherVoronoiOrigin);
+    //         if(!borderTiles.ContainsKey(offsetTile) && offsetDist < otherOffsetDist)
+    //         {
+    //             borderTiles[offsetTile] = edgeTile.Value;
+    //         }
+    //     }
+    // }
 
 }
