@@ -29,7 +29,6 @@ texture = SubResource("NoiseTexture2D_w5ond")
 
 [node name="Options" type="Node" parent="." node_paths=PackedStringArray("chunkMap")]
 script = ExtResource("4_s6i65")
-MapSize = 0
 shader = ExtResource("5_7od4j")
 chunkMap = NodePath("../ChunkMap")
 

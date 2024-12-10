@@ -11,6 +11,7 @@ public partial class Options : Node
     private FastNoiseLite.FractalTypeEnum _fractalType = FastNoiseLite.FractalTypeEnum.None;
     private int _fractalOctaves = 1;
     private float _frequency = 0.01f;
+    private bool _edgesInsteadBorders = false;
     [Export] public uint Seed { get => _seed; set { _seed = value; Reset(); } }
     [Export] public int MapSize { get => _mapSize; set { _mapSize = value; Reset(); } }
     [Export] public int ChunkSize { get => _chunkSize; set { _chunkSize = value; Reset(); } }
@@ -19,6 +20,7 @@ public partial class Options : Node
     [Export] public FastNoiseLite.FractalTypeEnum FractalType { get => _fractalType; set { _fractalType = value; Reset(); } }
     [Export] public int FractalOctaves { get => _fractalOctaves; set { _fractalOctaves = value; Reset(); } }
     [Export] public float Frequency { get => _frequency; set { _frequency = value; Reset(); } }
+    [Export] public bool EdgesInsteadBorders { get => _edgesInsteadBorders; set { _edgesInsteadBorders = value; Reset(); } }
     [Export] public Shader shader;
     [Export] public ChunkMap chunkMap;
     public FastNoiseLite chunkVertexNoise;

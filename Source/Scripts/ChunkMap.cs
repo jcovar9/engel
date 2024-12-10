@@ -39,26 +39,14 @@ public partial class ChunkMap : Node2D
             {
                 vertex.SetupConnections();
             }
-            foreach (ChunkEdge edge in edges.Values)
+            if(options.EdgesInsteadBorders)
             {
-                foreach (KeyValuePair<Vector2I, float> edgeTile in edge.edgeTiles)
-                {
-                    SetTileHeight(edgeTile.Key, edgeTile.Value);
-                    SetTileType(edgeTile.Key, 4);
-                }
+                SetEdgeTiles();
             }
-            // foreach (Chunk chunk in chunks.Values)
-            // {
-            //     foreach (Tuple<BasicVertexInfo, BasicVertexInfo> basicEdge in chunk.edges)
-            //     {
-            //         ChunkEdge edge = edges[new(basicEdge.Item1.pos, basicEdge.Item2.pos)];
-            //         foreach (KeyValuePair<Vector2I, float> borderTile in edge.GetBorderTiles(chunk.voronoiOrigins3x3[4]))
-            //         {
-            //             SetTileHeight(borderTile.Key, borderTile.Value);
-            //             SetTileType(borderTile.Key, 4);
-            //         }
-            //     }
-            // }
+            else
+            {
+                SetBorderTiles();
+            }
             foreach(ChunkVertex vertex in vertexes.Values)
             {
                 if(vertex.connectionsHave3Connections)
@@ -87,6 +75,35 @@ public partial class ChunkMap : Node2D
             }
 
             DrawView();
+        }
+    }
+
+    private void SetEdgeTiles()
+    {
+        foreach (ChunkEdge edge in edges.Values)
+        {
+            foreach (KeyValuePair<Vector2, float> edgeTile in edge.edgeTiles)
+            {
+                Vector2I edgeTilePos = new(Mathf.FloorToInt(edgeTile.Key.X), Mathf.FloorToInt(edgeTile.Key.Y));
+                SetTileHeight(edgeTilePos, edgeTile.Value);
+                SetTileType(edgeTilePos, 4);
+            }
+        }
+    }
+
+    private void SetBorderTiles()
+    {
+        foreach (Chunk chunk in chunks.Values)
+        {
+            foreach (Tuple<BasicVertexInfo, BasicVertexInfo> basicEdge in chunk.edges)
+            {
+                ChunkEdge edge = edges[new(basicEdge.Item1.pos, basicEdge.Item2.pos)];
+                foreach (KeyValuePair<Vector2I, float> borderTile in edge.GetBorderTiles(chunk.voronoiOrigins3x3[4]))
+                {
+                    SetTileHeight(borderTile.Key, borderTile.Value);
+                    SetTileType(borderTile.Key, 4);
+                }
+            }
         }
     }
 

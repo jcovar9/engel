@@ -27,6 +27,29 @@ public class Chunk
         SetEdges();
     }
 
+    private void SetVoronoiOrigins3x3()
+    {
+        this.voronoiOrigins3x3 = new Vector2I[9]{
+            GetVoronoiPoint(new(origin.X - options.ChunkSize, origin.Y - options.ChunkSize)),
+            GetVoronoiPoint(new(origin.X                    , origin.Y - options.ChunkSize)),
+            GetVoronoiPoint(new(origin.X + options.ChunkSize, origin.Y - options.ChunkSize)),
+
+            GetVoronoiPoint(new(origin.X - options.ChunkSize, origin.Y)),
+            GetVoronoiPoint(origin),
+            GetVoronoiPoint(new(origin.X + options.ChunkSize, origin.Y)),
+
+            GetVoronoiPoint(new(origin.X - options.ChunkSize, origin.Y + options.ChunkSize)),
+            GetVoronoiPoint(new(origin.X                    , origin.Y + options.ChunkSize)),
+            GetVoronoiPoint(new(origin.X + options.ChunkSize, origin.Y + options.ChunkSize))
+        };
+    }
+    
+    private Vector2I GetVoronoiPoint(Vector2I origin)
+    {
+        Vector2I offset = new(origin.X + options.ChunkSize / 4, origin.Y + options.ChunkSize / 4);
+        return options.rng.GetRandVec2I(origin, options.ChunkSize / 2, options.ChunkSize / 2) + offset;
+    }
+
     private void SetEdges()
     {
         edges = new();
@@ -94,16 +117,9 @@ public class Chunk
         {
             return new(v1, v2);
         }
-        else if(v1.pos.X == v2.pos.X)
+        else if(v1.pos.X == v2.pos.X && v1.pos.Y <= v2.pos.Y)
         {
-            if(v1.pos.Y <= v2.pos.Y)
-            {
-                return new(v1, v2);
-            }
-            else
-            {
-                return new(v2, v1);
-            }
+            return new(v1, v2);
         }
         else
         {
@@ -111,26 +127,4 @@ public class Chunk
         }
     }
 
-    private void SetVoronoiOrigins3x3()
-    {
-        this.voronoiOrigins3x3 = new Vector2I[9]{
-            GetVoronoiPoint(new(origin.X - options.ChunkSize, origin.Y - options.ChunkSize)),
-            GetVoronoiPoint(new(origin.X                    , origin.Y - options.ChunkSize)),
-            GetVoronoiPoint(new(origin.X + options.ChunkSize, origin.Y - options.ChunkSize)),
-
-            GetVoronoiPoint(new(origin.X - options.ChunkSize, origin.Y)),
-            GetVoronoiPoint(origin),
-            GetVoronoiPoint(new(origin.X + options.ChunkSize, origin.Y)),
-
-            GetVoronoiPoint(new(origin.X - options.ChunkSize, origin.Y + options.ChunkSize)),
-            GetVoronoiPoint(new(origin.X                    , origin.Y + options.ChunkSize)),
-            GetVoronoiPoint(new(origin.X + options.ChunkSize, origin.Y + options.ChunkSize))
-        };
-    }
-    
-    private Vector2I GetVoronoiPoint(Vector2I origin)
-    {
-        Vector2I offset = new(origin.X + options.ChunkSize / 4, origin.Y + options.ChunkSize / 4);
-        return options.rng.GetRandVec2I(origin, options.ChunkSize / 2, options.ChunkSize / 2) + offset;
-    }
 }
