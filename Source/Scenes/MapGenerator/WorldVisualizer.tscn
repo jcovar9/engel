@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3 uid="uid://d1ngbn7x6o23g"]
+
+[ext_resource type="Script" path="res://Source/Scenes/MapGenerator/Options.cs" id="1_64qfw"]
+[ext_resource type="Script" path="res://Source/Scenes/MapGenerator/WorldVisualizer.cs" id="2_i5t13"]
+
+[node name="Node2D" type="Node2D"]
+
+[node name="Options" type="Node2D" parent="." node_paths=PackedStringArray("worldVisualizer")]
+script = ExtResource("1_64qfw")
+worldVisualizer = NodePath("../WorldVisualizer")
+
+[node name="WorldVisualizer" type="Node2D" parent="." node_paths=PackedStringArray("options")]
+script = ExtResource("2_i5t13")
+options = NodePath("../Options")

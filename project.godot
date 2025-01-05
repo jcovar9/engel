@@ -11,6 +11,7 @@ config_version=5
 [application]
 
 config/name="Engel"
+run/main_scene="res://Source/Scenes/WorldVisualizer.tscn"
 config/features=PackedStringArray("4.3", "C#", "Mobile")
 config/icon="res://icon.svg"
 
