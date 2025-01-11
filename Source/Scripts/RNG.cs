@@ -1,5 +1,4 @@
 using Godot;
-using System;
 
 public partial class RNG
 {
@@ -28,24 +27,19 @@ public partial class RNG
         mangled ^= mangled >> 8;
         return mangled;
     }
-    private uint Get2DNoise(int x, int y)
+    private uint Get2DNoise(Vector2I vec)
     {
-        return Get1DNoise((uint)(x + (LargePrimeNum * y)));
+        return Get1DNoise((uint)(vec.X + (LargePrimeNum * vec.Y)));
     }
 
     private float Vec2IToRandRatio(Vector2I pos)
     {
-        return Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Get2DNoise(pos.X, pos.Y));
+        return Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Get2DNoise(pos));
     }
-
-    // public float Vec2ToRandRatio(Vector2 pos)
-    // {
-    //     return Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Get2DNoise((int)pos.X, (int)pos.Y));
-    // }
 
     public int GetRandRange(Vector2I pos, int from, int to)
     {
-        if(from == to) { return from; }
+        if (from == to) { return from; }
         return (int)Mathf.Lerp(from, to, Vec2IToRandRatio(pos));
     }
 
@@ -57,31 +51,45 @@ public partial class RNG
         return new Vector2I(randX, randY);
     }
 
-    public Vector2 GetRandVec2(Vector2I pos, float width, float height)
-    {
-        Next = Get2DNoise(pos.X, pos.Y);
-        float randX = Mathf.Lerp(0.0f, width, Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Next));
-        Next = Get1DNoise(Next);
-        float randY = Mathf.Lerp(0.0f, height, Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Next));
-        ResetNext();
-        return new Vector2(randX, randY);
-    }
+    // NEXT FUNCTIONS
 
-    // NEXT Functions
     public void ResetNext() { Next = Seed; }
 
-    public int NextRandRange(int from, int to)
+    private uint GetNext1DNoise(uint position)
     {
-        if(from == to) { return from; }
-        Next = Get1DNoise(Next);
-        return (int)Mathf.Lerp(from, to, Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Next));
+        uint mangled = position;
+        mangled *= BitNoise1;
+        mangled += Next;
+        mangled ^= mangled >> 8;
+        mangled += BitNoise2;
+        mangled ^= mangled << 8;
+        mangled *= BitNoise3;
+        mangled ^= mangled >> 8;
+        Next = mangled;
+        return mangled;
     }
 
-    public Vector2I NextRand2DRange(int rows, int cols)
+    private uint GetNext2DNoise(Vector2I vec)
     {
-        int Rand = NextRandRange(0, rows * cols);
-        int x = Rand / rows;
-        int y = Rand - (x * rows);
+        return GetNext1DNoise((uint)(vec.X + (LargePrimeNum * vec.Y)));
+    }
+
+    private float Vec2IToNextRandRatio(Vector2I pos)
+    {
+        return Mathf.InverseLerp(uint.MinValue, uint.MaxValue, GetNext2DNoise(pos));
+    }
+
+    public int NextRandRange(Vector2I pos, int from, int to)
+    {
+        if (from == to) { return from; }
+        return (int)Mathf.Lerp(from, to, Vec2IToNextRandRatio(pos));
+    }
+
+    public Vector2I NextRandVec2I(Vector2I pos, int width, int height)
+    {
+        int rand = NextRandRange(pos, 0, width * height);
+        int x = rand / width;
+        int y = rand - (x * width);
         return new Vector2I(x, y);
     }
 }
