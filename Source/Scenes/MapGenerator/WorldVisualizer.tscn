@@ -7,7 +7,6 @@
 
 [node name="Options" type="Node2D" parent="." node_paths=PackedStringArray("worldVisualizer")]
 script = ExtResource("1_64qfw")
-CellSize = 320
 NumCells = 8
 worldVisualizer = NodePath("../WorldVisualizer")
 

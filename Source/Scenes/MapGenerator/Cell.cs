@@ -5,6 +5,44 @@ using Godot;
 
 public class Cell
 {
+    private struct CellWaterInfo
+    {
+        public int cellSize;
+        public Vector2I cellOrigin;
+        public Vector2I riverPoint;
+        public float riverPointHeight;
+        public Vector2I exitCellOrigin;
+        public Vector2I exitCellRiverPoint;
+        public float exitCellRiverPointHeight;
+        public CellWaterInfo(Options options, Vector2I cellOrigin)
+        {
+            this.cellSize = options.CellSize;
+            this.cellOrigin = cellOrigin;
+            this.riverPoint = GetRiverPoint(options, cellOrigin);
+            this.riverPointHeight = GetHeight(options, riverPoint);
+            Span<Vector2I> otherCellOrigins = stackalloc Vector2I[]
+            {
+                new Vector2I(cellOrigin.X, cellOrigin.Y - cellSize),
+                new Vector2I(cellOrigin.X - cellSize, cellOrigin.Y),
+                new Vector2I(cellOrigin.X + cellSize, cellOrigin.Y),
+                new Vector2I(cellOrigin.X, cellOrigin.Y + cellSize),
+            };
+            this.exitCellOrigin = cellOrigin;
+            this.exitCellRiverPoint = riverPoint;
+            this.exitCellRiverPointHeight = riverPointHeight;
+            foreach (Vector2I otherCellOrigin in otherCellOrigins)
+            {
+                Vector2I otherCellRiverPoint = GetRiverPoint(options, otherCellOrigin);
+                float otherCellRiverPointHeight = GetHeight(options, otherCellRiverPoint);
+                if(otherCellRiverPointHeight < exitCellRiverPointHeight)
+                {
+                    this.exitCellOrigin = otherCellOrigin;
+                    this.exitCellRiverPoint = otherCellRiverPoint;
+                    this.exitCellRiverPointHeight = otherCellRiverPointHeight;
+                }
+            }
+        }
+    }
     private enum TileType
     {
         Land = 0,
@@ -15,13 +53,7 @@ public class Cell
     private readonly Options options;
     public readonly Vector2I cellOrigin;
     private readonly int cellSize;
-
-    private readonly Vector2I riverPoint;
-    private readonly float riverPointHeight;
-
-    private readonly Vector2I exitCellOrigin;
-    private readonly Vector2I exitRiverPoint;
-    private readonly float exitRiverPointHeight;
+    private CellWaterInfo cellWaterInfo;
 
     private readonly (float, TileType)[,] tiles;
     public Cell(Options options, Vector2I cellOrigin)
@@ -29,64 +61,57 @@ public class Cell
         this.options = options;
         this.cellOrigin = cellOrigin;
         this.cellSize = options.CellSize;
-        (this.riverPoint, this.riverPointHeight) = GetRiverPoint(cellOrigin);
-        (this.exitCellOrigin, this.exitRiverPoint, this.exitRiverPointHeight) = GetExitCellInfo(cellOrigin);
+        this.cellWaterInfo = new(options, cellOrigin);
         this.tiles = new (float, TileType)[cellSize, cellSize];
         SetRivers();
         SetTiles();
     }
 
-    private (Vector2I, float) GetRiverPoint(Vector2I myCellOrigin)
+    private static Vector2I GetRiverPoint(Options options, Vector2I origin)
     {
-        Vector2I pos = myCellOrigin + new Vector2I(cellSize / 4, cellSize / 4);
-        Vector2I randPos = options.rng.GetRandVec2I(myCellOrigin, cellSize / 2, cellSize / 2) + pos;
-        return (randPos, GetHeight(randPos.X, randPos.Y));
+        return options.rng.GetRandVec2I(origin, options.CellSize / 2, options.CellSize / 2) + origin + new Vector2I(options.CellSize / 4, options.CellSize / 4);
     }
 
-    private float GetHeight(float x, float y)
+    private static float GetHeight(Options options, Vector2I v)
     {
-        float baseHeight = (options.noise.GetNoise2D(x, y) + 1.0f) * 0.5f;
-        float xDistanceMultiplier = 1f - Mathf.Pow(x * 2 / options.MapSize, 2f);
-        float yDistanceMultiplier = 1f - Mathf.Pow(y * 2 / options.MapSize, 2f);
+        float baseHeight = (options.noise.GetNoise2D(v.X, v.Y) + 1.0f) * 0.5f;
+        float xDistanceMultiplier = 1f - Mathf.Pow(v.X * 2 / options.MapSize, 2f);
+        float yDistanceMultiplier = 1f - Mathf.Pow(v.Y * 2 / options.MapSize, 2f);
         return baseHeight * xDistanceMultiplier * yDistanceMultiplier;
     }
 
     public void SetRivers()
     {
         List<Tuple<Vector2I, float>> riverLineTiles = new();
-        for (int i = -1; i <= 1; i += 2)
+        Span<Vector2I> otherCellOrigins = stackalloc Vector2I[]
         {
-            int tmp = i * cellSize;
-            for (int j = 0; j < 2; j++)
+            new Vector2I(cellOrigin.X, cellOrigin.Y - cellSize),
+            new Vector2I(cellOrigin.X - cellSize, cellOrigin.Y),
+            new Vector2I(cellOrigin.X + cellSize, cellOrigin.Y),
+            new Vector2I(cellOrigin.X, cellOrigin.Y + cellSize),
+        };
+        foreach (Vector2I otherCellOrigin in otherCellOrigins)
+        {
+            CellWaterInfo otherCellWaterInfo = new(options, otherCellOrigin);
+            if(cellOrigin == otherCellWaterInfo.exitCellOrigin)
             {
-                Vector2I neighborOrigin = cellOrigin + new Vector2I(j, 1 - j) * tmp;
-                (Vector2I, Vector2I, float) neighborExitCellInfo = GetExitCellInfo(neighborOrigin);
-                if (cellOrigin == neighborExitCellInfo.Item1)
+                SetRiverLine(riverLineTiles, cellWaterInfo.riverPoint, cellWaterInfo.riverPointHeight, otherCellWaterInfo.riverPoint, otherCellWaterInfo.riverPointHeight);
+                // GD.Print(riverLineTiles.Count);
+                foreach (Tuple<Vector2I, float> riverTile in riverLineTiles)
                 {
-                    // river flows into my chunk
-                    SetRiverLine(riverLineTiles, riverPoint, riverPointHeight, neighborExitCellInfo.Item2, neighborExitCellInfo.Item3);
-                    GD.Print(riverLineTiles.Count);
-                    foreach (Tuple<Vector2I, float> riverTile in riverLineTiles)
+                    Vector2I indexVec = riverTile.Item1 - cellOrigin;
+                    if (0 <= indexVec.X && indexVec.X < cellSize &&
+                    0 <= indexVec.Y && indexVec.Y < cellSize)
                     {
-                        Vector2I indexVec = riverTile.Item1 - cellOrigin;
-                        // if (cellOrigin == new Vector2I(320, 0))
-                        // {
-                        //     // GD.Print(indexVec);
-                        // }
-                        if (0 <= indexVec.X && indexVec.X < cellSize &&
-                        0 <= indexVec.Y && indexVec.Y < cellSize)
-                        {
-                            // GD.Print(cellOrigin, " has neighbor: ", neighborOrigin, " that flows in");
-                            tiles[indexVec.X, indexVec.Y] = (riverTile.Item2, TileType.River);
-                        }
+                        tiles[indexVec.X, indexVec.Y] = (riverTile.Item2, TileType.River);
                     }
-                    riverLineTiles.Clear();
                 }
+                riverLineTiles.Clear();
             }
         }
-        if (cellOrigin != exitCellOrigin)
+        if (cellOrigin != cellWaterInfo.exitCellOrigin)
         {
-            SetRiverLine(riverLineTiles, riverPoint, riverPointHeight, exitRiverPoint, exitRiverPointHeight);
+            SetRiverLine(riverLineTiles, cellWaterInfo.riverPoint, cellWaterInfo.riverPointHeight, cellWaterInfo.exitCellRiverPoint, cellWaterInfo.exitCellRiverPointHeight);
             foreach (Tuple<Vector2I, float> riverTile in riverLineTiles)
             {
                 Vector2I indexVec = riverTile.Item1 - cellOrigin;
@@ -97,133 +122,33 @@ public class Cell
                 }
             }
         }
+        // for (int i = -1; i <= 1; i += 2)
+        // {
+        //     int tmp = i * cellSize;
+        //     for (int j = 0; j < 2; j++)
+        //     {
+        //         Vector2I neighborOrigin = cellOrigin + new Vector2I(j, 1 - j) * tmp;
+        //         (Vector2I, Vector2I, float) neighborExitCellInfo = GetExitCellInfo(neighborOrigin);
+        //         if (cellOrigin == neighborExitCellInfo.Item1)
+        //         {
+        //             // river flows into my cell
+        //             // riverLineTiles list is coming back empty everytime
+        //             SetRiverLine(riverLineTiles, riverPoint, riverPointHeight, neighborExitCellInfo.Item2, neighborExitCellInfo.Item3);
+        //             GD.Print(riverLineTiles.Count);
+        //             foreach (Tuple<Vector2I, float> riverTile in riverLineTiles)
+        //             {
+        //                 Vector2I indexVec = riverTile.Item1 - cellOrigin;
+        //                 if (0 <= indexVec.X && indexVec.X < cellSize &&
+        //                 0 <= indexVec.Y && indexVec.Y < cellSize)
+        //                 {
+        //                     tiles[indexVec.X, indexVec.Y] = (riverTile.Item2, TileType.River);
+        //                 }
+        //             }
+        //             riverLineTiles.Clear();
+        //         }
+        //     }
+        // }
     }
-
-    private (Vector2I, Vector2I, float) GetExitCellInfo(Vector2I myCellOrigin)
-    {
-        (Vector2I, float) myRiverPoint = GetRiverPoint(myCellOrigin);
-        (Vector2I, Vector2I, float) exitCellInfo = (myCellOrigin, myRiverPoint.Item1, myRiverPoint.Item2);
-        for (int i = -1; i <= 1; i += 2)
-        {
-            int tmp = i * cellSize;
-            for (int j = 0; j < 2; j++)
-            {
-                Vector2I otherCellOrigin = myCellOrigin + new Vector2I(j, 1 - j) * tmp;
-                (Vector2I, float) otherRiverPoint = GetRiverPoint(otherCellOrigin);
-                if (otherRiverPoint.Item2 < exitCellInfo.Item3)
-                {
-                    exitCellInfo = (otherCellOrigin, otherRiverPoint.Item1, otherRiverPoint.Item2);
-                }
-            }
-        }
-        return exitCellInfo;
-    }
-
-    // private (Vector2I, float, Vector2I, float) GetExitRiverPoints(Vector2I myCellOrigin)
-    // {
-    //     (Vector2I, float) myRiverPoint = GetRiverPoint(myCellOrigin);
-    //     (Vector2I, float) currExitCell = (myRiverPoint, myRiverPointHeight);
-    //     for (int i = -1; i <= 1; i += 2)
-    //     {
-    //         int tmp = i * cellSize;
-    //         for (int j = 0; j < 2; j++)
-    //         {
-    //             Vector2I currOrigin = cellOrigin + new Vector2I(j, 1 - j) * tmp;
-    //             Vector2I currRiverPoint = currOrigin + options.rng.GetRandVec2I(currOrigin, cellSize, cellSize);
-    //             float height = GetHeight(currRiverPoint.X, currRiverPoint.Y);
-    //             if (height < currExitCell.Item2)
-    //             {
-    //                 currExitCell = (currRiverPoint, height);
-    //             }
-    //         }
-    //     }
-    //     return (myRiverPoint, myRiverPointHeight, currExitCell.Item1, currExitCell.Item2);
-    // }
-
-    // Span<(Vector2I, float)> riverPoints5x5 = stackalloc (Vector2I, float)[25];
-    // for (int x = -2; x < 3; x++)
-    // {
-    //     for (int y = -2; y < 3; y++)
-    //     {
-    //         Vector2I currOrigin = cellOrigin + new Vector2I(x, y) * options.CellSize;
-    //         int currIndex = (x + 2) + (y + 2) * 5;
-    //         int size = options.CellSize / 2;
-    //         Vector2I offset = Vector2I.One * (options.CellSize / 4);
-    //         Vector2I riverPoint = cellOrigin + options.rng.GetRandVec2I(currOrigin, size, size) + offset;
-    //         float riverPointHeight = GetHeight(riverPoint.X, riverPoint.Y);
-    //         riverPoints5x5[currIndex] = (riverPoint, riverPointHeight);
-    //     }
-    // }
-    // List<Vector2I> riverTiles = new();
-    // for (int x = -1; x < 2; x++)
-    // {
-    //     for (int y = -1; y < 2; y++)
-    //     {
-    //         Vector2I currOrigin = cellOrigin + new Vector2I(x, y) * options.CellSize;
-    //         int currIndex = (x + 2) + (y + 2) * 5;
-    //         int exitCellIndex = GetExitIndex(riverPoints5x5, currIndex);
-    //         if (currIndex != 12)
-    //         {
-    //             if (exitCellIndex == 12)
-    //             {
-    //                 SetLine(riverTiles, riverPoints5x5[currIndex].Item1, riverPoints5x5[exitCellIndex].Item1);
-    //                 foreach (Vector2I riverTile in riverTiles)
-    //                 {
-    //                     if (cellOrigin.X <= riverTile.X && riverTile.X < cellOrigin.X + options.CellSize &&
-    //                     cellOrigin.Y <= riverTile.Y && riverTile.Y < cellOrigin.Y + options.CellSize)
-    //                     {
-    //                         int xPos = riverTile.X - cellOrigin.X;
-    //                         int yPos = riverTile.Y - cellOrigin.Y;
-    //                         tiles[xPos, yPos].Item2 = TileType.River;
-    //                     }
-    //                 }
-    //                 riverTiles.Clear();
-    //             }
-    //         }
-    //         else
-    //         {
-    //             if (exitCellIndex == 12)
-    //             {
-    //                 // has lake
-    //             }
-    //             else
-    //             {
-    //                 // river flows out
-    //             }
-    //         }
-    //         // if ((i == 12 && exit != 12) || (i != 12 && exit == 12))
-    //         // {
-    //         //     SetLine(riverTiles, neighbors5x5[i].Item1, neighbors5x5[exit].Item1);
-    //         //     foreach (Vector2I riverTile in riverTiles)
-    //         //     {
-    //         //         if (cellOrigin.X <= riverTile.X && riverTile.X < cellOrigin.X + options.CellSize &&
-    //         //         cellOrigin.Y <= riverTile.Y && riverTile.Y < cellOrigin.Y + options.CellSize)
-    //         //         {
-    //         //             int xPos = riverTile.X - cellOrigin.X;
-    //         //             int yPos = riverTile.Y - cellOrigin.Y;
-    //         //             tileHeights[xPos, yPos] = 1.0f;
-    //         //         }
-    //         //     }
-    //         // }
-    //     }
-    // }
-
-    // public static int GetExitIndex(Span<(Vector2I, float)> riverPoints5x5, int i)
-    // {
-    //     int exit = i;
-    //     for (int x = -1; x < 2; x++)
-    //     {
-    //         for (int y = -1; y < 2; y++)
-    //         {
-    //             int otherI = i + x + y * 5;
-    //             if (otherI != i && riverPoints5x5[otherI].Item2 < riverPoints5x5[exit].Item2)
-    //             {
-    //                 exit = otherI;
-    //             }
-    //         }
-    //     }
-    //     return exit;
-    // }
 
     private static void SetRiverLine(List<Tuple<Vector2I, float>> riverLineTiles, Vector2I v0, float v0Height, Vector2I v1, float v1Height)
     {
@@ -276,7 +201,7 @@ public class Cell
                 (float, TileType) tile = tiles[x, y];
                 if (tile.Item2 != TileType.River)
                 {
-                    tile.Item1 = GetHeight(x + cellOrigin.X, y + cellOrigin.Y);
+                    tile.Item1 = GetHeight(options, cellOrigin + new Vector2I(x, y));//x + cellOrigin.X, y + cellOrigin.Y);
                     tiles[x, y].Item1 = tile.Item1;
                     if (tile.Item1 < 0.2f)
                     {
