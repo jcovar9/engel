@@ -32,7 +32,7 @@ public partial class RNG
         return Get1DNoise((uint)(vec.X + (LargePrimeNum * vec.Y)));
     }
 
-    private float Vec2IToRandRatio(Vector2I pos)
+    public float Vec2IToRandRatio(Vector2I pos)
     {
         return Mathf.InverseLerp(uint.MinValue, uint.MaxValue, Get2DNoise(pos));
     }
@@ -74,7 +74,7 @@ public partial class RNG
         return GetNext1DNoise((uint)(vec.X + (LargePrimeNum * vec.Y)));
     }
 
-    private float Vec2IToNextRandRatio(Vector2I pos)
+    public float Vec2IToNextRandRatio(Vector2I pos)
     {
         return Mathf.InverseLerp(uint.MinValue, uint.MaxValue, GetNext2DNoise(pos));
     }

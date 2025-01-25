@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Godot;
 
 [Tool]
@@ -6,44 +8,47 @@ public partial class WorldVisualizer : Node2D
 {
     [Export] public Options options;
 
-    //private float[,] chunkVertexHeights = new float[100,100];
-    //private HashSet<Vector2I> oceanTiles = new();
+    private readonly List<Tuple<Cell, Task<ImageTexture>>> cells = new();
+
     private readonly List<Sprite2D> cellSprites = new();
 
     public void Init()
     {
-        FreePreviousSprites();
+        Reset();
         CreateCells();
     }
 
-    private void FreePreviousSprites()
+    private void Reset()
     {
         foreach (Sprite2D sprite in cellSprites)
         {
             sprite.QueueFree();
         }
         cellSprites.Clear();
+        cells.Clear();
     }
 
     private void CreateCells()
     {
-        int numCells = options.NumCells;
-        int offset = numCells / 2 * options.CellSize;
-        for (int x = 0; x < numCells; x++)
+        for (int x = 0; x < options.NumCells; x++)
         {
-            for (int y = 0; y < numCells; y++)
+            for (int y = 0; y < options.NumCells; y++)
             {
-                int xPos = x * options.CellSize - offset;
-                int yPos = y * options.CellSize - offset;
-                Sprite2D sprite = new()
-                {
-                    Texture = new Cell(options, new(xPos, yPos)).GetIMGTEX(),
-                    Position = new(xPos + options.CellSize / 2, yPos + options.CellSize / 2),
-                    TextureFilter = TextureFilterEnum.Nearest,
-                };
-                cellSprites.Add(sprite);
-                AddChild(sprite);
+                Vector2I cellOrigin = new Vector2I(x, y) * options.CellSize;
+                Cell cell = new(cellOrigin, options.CellSize, options.MapSize, options.Seed, options.VLayers);
+                cells.Add(new(cell, Task.Run(() => cell.GetIMGTEX())));
             }
+        }
+        foreach (Tuple<Cell, Task<ImageTexture>> cell in cells)
+        {
+            Sprite2D sprite = new()
+            {
+                Texture = cell.Item2.Result,
+                Position = cell.Item1.CellOrigin + Vector2I.One * (options.CellSize / 2),
+                TextureFilter = TextureFilterEnum.Nearest,
+            };
+            cellSprites.Add(sprite);
+            AddChild(sprite);
         }
     }
 }
