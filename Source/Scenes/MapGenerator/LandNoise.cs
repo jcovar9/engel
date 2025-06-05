@@ -68,7 +68,23 @@ public class LandNoise
         Vector2I vPoint;
         if (!layers[vCellSize].Item1.TryGetValue(origin, out vPoint))
         {
-            // Vector2I rngPoint = origin + Vector2I.One * (vCellSize / 2);
+            Vector2I rngPoint = origin + Vector2I.One * (vCellSize / 2);
+            int spawnRange = (vCellSize / 2) * (vCellSize / 4 + 1);
+            int index = _rng.GetRandRange(rngPoint, 0, spawnRange);
+            index -= spawnRange / 2;
+            int x;
+            if (index < 0)
+            {
+                index += spawnRange / 2;
+                x = Mathf.FloorToInt((-1 + Mathf.Sqrt(1 + 4 * index)) / 2) - vCellSize / 4;
+            }
+            else
+            {
+                index -= spawnRange / 2;
+                index *= -1;
+                x = -Mathf.FloorToInt((-1 + Mathf.Sqrt(1 + 4 * index)) / 2) - vCellSize / 4;
+            }
+
             vPoint = _rng.GetRandVec2I(origin, vCellSize, vCellSize) + origin;
             layers[vCellSize].Item1.Add(origin, vPoint);
         }
